@@ -681,8 +681,9 @@ void updateHaptics(void)
 					auto target_contact = p0 + proj;
 					cursor->setLocalPos(target_contact + o * radius);
 					// apply forces to the triangle
-					f0 = -normal * (1 - lerp_amount) * penetration_depth * proj_sign * 1000;
-					f1 = -normal * (lerp_amount) * penetration_depth * proj_sign * 1000;
+					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+					f0 = fd * (1 - lerp_amount) * penetration_depth  * 1000;
+					f1 = fd * (lerp_amount) * penetration_depth * 1000;
 				}
 			}
 		}
@@ -704,8 +705,9 @@ void updateHaptics(void)
 					auto target_contact = p1 + proj;
 					cursor->setLocalPos(target_contact + o * radius);
 					// apply forces to the triangle
-					f1 = -normal * (1 - lerp_amount) * penetration_depth * proj_sign * 900;
-					f2 = -normal * (lerp_amount)* penetration_depth * proj_sign * 900;
+					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+					f1 = fd * (1 - lerp_amount) * penetration_depth * 1000;
+					f2 = fd * (lerp_amount)* penetration_depth * 1000;
 				}
 			}
 		}
@@ -727,8 +729,9 @@ void updateHaptics(void)
 					auto target_contact = p2 + proj;
 					cursor->setLocalPos(target_contact + o * radius);
 					// apply forces to the triangle
-					f2 = -normal * (1 - lerp_amount) * penetration_depth * proj_sign * 900;
-					f0 = -normal * (lerp_amount)* penetration_depth * proj_sign * 900;
+					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+					f2 = fd * (1 - lerp_amount) * penetration_depth * 1000;
+					f0 = fd * (lerp_amount)* penetration_depth * 1000;
 				}
 			}
 		}
@@ -742,6 +745,8 @@ void updateHaptics(void)
 				d.normalize();
 				cursor->setLocalPos(p0 + d * (radius));
 				contact = 1;
+				auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+				f0 = -f * fd * 900;
 			}
 		}
 		if (!contact)
@@ -753,6 +758,7 @@ void updateHaptics(void)
 				d.normalize();
 				cursor->setLocalPos(p1 + d * (radius));
 				contact = 1;
+				f1 = -(cursor->getLocalPos() - position) * 900;
 			}
 		}
 		if (!contact)
@@ -764,6 +770,7 @@ void updateHaptics(void)
 				d.normalize();
 				cursor->setLocalPos(p2 + d * (radius));
 				contact = 1;
+				f2 = -(cursor->getLocalPos() - position) * 900;
 			}
 		}
 
