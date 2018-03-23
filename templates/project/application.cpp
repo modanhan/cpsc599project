@@ -613,9 +613,6 @@ void updateHaptics(void)
 		cVector3d torque(0, 0, 0);
 		double gripperForce = 0.0;
 
-
-
-
 		sphere0->Update(0.001, position, force);
 		for (auto& a : sphereShapeMatch) {
 			a->Update(0.001, position, force);
@@ -645,19 +642,21 @@ void updateHaptics(void)
 		{
 			// check cursor sphere against the face
 			auto proj_face = cursor->getLocalPos() - proj;
-
+			
+			// calculating barycentric 
 			cVector3d barycentric;
 			{ auto d = p1 - p0; d.cross(proj_face - p0); barycentric.z(d.length() * (d.z() / abs(d.z()))); }
 			{ auto d = p2 - p1; d.cross(proj_face - p1); barycentric.x(d.length() * (d.z() / abs(d.z()))); }
 			{ auto d = p0 - p2; d.cross(proj_face - p2); barycentric.y(d.length() * (d.z() / abs(d.z()))); }
 			barycentric.normalize();
-
+ 
 			// cursor sphere touching triangle face
 			if (abs(proj_dot_normal) < radius && barycentric.x() >= 0 && barycentric.y() >= 0 && barycentric.z() >= 0
 				&& barycentric.x() <= 1 && barycentric.y() <= 1 && barycentric.z() <= 1) {
 				cursor->setLocalPos(proj_face + normal * radius * proj_dot_normal / abs(proj_dot_normal));
 				contact = 1;
 
+				// direction * barycentric coordinate (weight) * penetration depth * sign * stiffness
 				f0 = -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 600;
 				f1 = -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 600;
 				f2 = -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 600;
