@@ -658,9 +658,9 @@ void updateHaptics(void)
 				cursor->setLocalPos(proj_face + normal * radius * proj_dot_normal / abs(proj_dot_normal));
 				contact = 1;
 
-				f0 = -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 600;
-				f1 = -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 600;
-				f2 = -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 600;
+				f0 = -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+				f1 = -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+				f2 = -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
 
 			}
 		}
@@ -682,8 +682,8 @@ void updateHaptics(void)
 					auto target_contact = p0 + proj;
 					cursor->setLocalPos(target_contact + o * radius);
 					// apply forces to the triangle
-					f0 = -normal * (1 - lerp_amount) * penetration_depth * proj_sign * 900;
-					f1 = -normal * (lerp_amount) * penetration_depth * proj_sign * 900;
+					f0 = -normal * (1 - lerp_amount) * penetration_depth * proj_sign * 1000;
+					f1 = -normal * (lerp_amount) * penetration_depth * proj_sign * 1000;
 				}
 			}
 		}
