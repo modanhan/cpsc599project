@@ -1,6 +1,6 @@
 //==============================================================================
 /*
-	\authors    Modan Han; Camilo Talero
+	\author    Modan
 */
 //==============================================================================
 
@@ -249,7 +249,7 @@ int main(int argc, char* argv[])
 	world->addChild(camera);
 
 	// position and orient the camera
-	camera->set(cVector3d(0.25, 0.0, 0.0),    // camera position (eye)
+	camera->set(cVector3d(0.9, 0.0, 0.0),    // camera position (eye)
 		cVector3d(0.0, 0.0, 0.0),    // look at position (target)
 		cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
 
@@ -284,7 +284,6 @@ int main(int argc, char* argv[])
 
 	// insert cursor inside world
 	world->addChild(cursor);
-
 
 	// ================================================================================================
 	// shape matching with basic sphere particles
@@ -345,7 +344,40 @@ int main(int argc, char* argv[])
 
 
 
+	cMultiMesh* object = new cMultiMesh();
+	
+	// load geometry from file and compute additional properties
+	object->loadFromFile("/home/kronos/Downloads/chai3d-master/templates/project/Meshes/WhipperNudeS.obj");
+	object->createAABBCollisionDetector(0.0);
+	object->computeBTN();
+	
+	// obtain the first (and only) mesh from the object
+	cMesh* mesh = object->getMesh(0);
 
+	// replace the object's material with a custom one
+	mesh->m_material = cMaterial::create();
+	mesh->m_material->setWhite();
+	mesh->m_material->setUseHapticShading(true);
+	object->setStiffness(2000.0, true);
+
+	// create a colour texture map for this mesh object
+	cTexture2dPtr albedoMap = cTexture2d::create();
+	albedoMap->loadFromFile("images/bumps.png");
+	albedoMap->setWrapModeS(GL_REPEAT);
+	albedoMap->setWrapModeT(GL_REPEAT);
+	albedoMap->setUseMipmaps(true);
+
+	// assign textures to the mesh
+	mesh->m_texture = albedoMap;
+	mesh->setUseTexture(true);
+
+	// set the position of this object
+	double xpos = 0;
+	double ypos = 0;
+	object->setLocalPos(xpos, ypos);
+
+	world->clearAllChildren();
+	world->addChild(object);
 
 
 
@@ -681,8 +713,9 @@ void updateHaptics(void)
 					auto target_contact = p0 + proj;
 					cursor->setLocalPos(target_contact + o * radius);
 					// apply forces to the triangle
-					f0 = -normal * (1 - lerp_amount) * penetration_depth * proj_sign * 1000;
-					f1 = -normal * (lerp_amount) * penetration_depth * proj_sign * 1000;
+					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+					f0 = fd * (1 - lerp_amount) * penetration_depth  * 1000;
+					f1 = fd * (lerp_amount) * penetration_depth * 1000;
 				}
 			}
 		}
@@ -704,8 +737,9 @@ void updateHaptics(void)
 					auto target_contact = p1 + proj;
 					cursor->setLocalPos(target_contact + o * radius);
 					// apply forces to the triangle
-					f1 = -normal * (1 - lerp_amount) * penetration_depth * proj_sign * 900;
-					f2 = -normal * (lerp_amount)* penetration_depth * proj_sign * 900;
+					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+					f1 = fd * (1 - lerp_amount) * penetration_depth * 1000;
+					f2 = fd * (lerp_amount)* penetration_depth * 1000;
 				}
 			}
 		}
@@ -727,8 +761,9 @@ void updateHaptics(void)
 					auto target_contact = p2 + proj;
 					cursor->setLocalPos(target_contact + o * radius);
 					// apply forces to the triangle
-					f2 = -normal * (1 - lerp_amount) * penetration_depth * proj_sign * 900;
-					f0 = -normal * (lerp_amount)* penetration_depth * proj_sign * 900;
+					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+					f2 = fd * (1 - lerp_amount) * penetration_depth * 1000;
+					f0 = fd * (lerp_amount)* penetration_depth * 1000;
 				}
 			}
 		}
@@ -742,6 +777,8 @@ void updateHaptics(void)
 				d.normalize();
 				cursor->setLocalPos(p0 + d * (radius));
 				contact = 1;
+				auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+				f0 = -f * fd * 900;
 			}
 		}
 		if (!contact)
@@ -753,6 +790,7 @@ void updateHaptics(void)
 				d.normalize();
 				cursor->setLocalPos(p1 + d * (radius));
 				contact = 1;
+				f1 = -(cursor->getLocalPos() - position) * 900;
 			}
 		}
 		if (!contact)
@@ -764,6 +802,7 @@ void updateHaptics(void)
 				d.normalize();
 				cursor->setLocalPos(p2 + d * (radius));
 				contact = 1;
+				f2 = -(cursor->getLocalPos() - position) * 900;
 			}
 		}
 
