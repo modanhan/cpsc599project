@@ -1,0 +1,3 @@
+/home/kronos/Downloads/chai3d-master/build/app/CMakeFiles/rebuild_cache.dir
+/home/kronos/Downloads/chai3d-master/build/app/CMakeFiles/application-GLFW.dir
+/home/kronos/Downloads/chai3d-master/build/app/CMakeFiles/edit_cache.dir
