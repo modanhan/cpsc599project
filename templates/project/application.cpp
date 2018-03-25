@@ -64,23 +64,49 @@ cLabel* labelRates;
 // a small sphere (cursor) representing the haptic device 
 cShapeSphere* cursor;
 
+struct MatchingTriangle{
+	cMesh* triangle;
+	vector<cVector3d> originalPoints = vector<cVector3d>(3);
+	vector<cVector3d> forces = vector<cVector3d>(3);
+	vector<cVector3d> velocities = vector<cVector3d>(3);
+	
+	double m = 1, k = 100, b = 10;
 
+	cShapeLine* l0;
+	cShapeLine* l1;
+	cShapeLine* l2;
 
+	MatchingTriangle();
 
-cShapeBox* ground;
-MyShapeMachingObject* sphere0;
-vector<MyShapeMachingObject*> sphereShapeMatch;
+	void update(cVector3d &force, cVector3d &position);
+	bool updateTriangle(cVector3d &force, cVector3d &position);
+	bool updateLine(uint indexP0, uint indexP1, cVector3d &position);
+	bool updatePoint(uint index, cVector3d &position);
+	void movePoint(uint index);
+};
 
+MatchingTriangle::MatchingTriangle()
+{
+	triangle = new cMesh();
+	originalPoints[0] = cVector3d(0.02, -0.02, 0);
+	originalPoints[1] = cVector3d(0.02, 0.03, 0);
+	originalPoints[2] = cVector3d(-0.03, 0, 0.02);
+	triangle->newVertex(originalPoints[0]);
+	triangle->newVertex(originalPoints[1]);
+	triangle->newVertex(originalPoints[2]);
+	triangle->setVertexColor(cColorf(1, 1, 1, 1));
+	triangle->newTriangle(0, 1, 2);
+	world->addChild(triangle);
 
+	l0 = new cShapeLine();
+	l1 = new cShapeLine();
+	l2 = new cShapeLine();
+	world->addChild(l0);
+	world->addChild(l1);
+	world->addChild(l2);
+}
 
-cMesh* shapeMatchTriangle;
-cVector3d op0, op1, op2, f0, f1, f2, v0, v1, v2;
-double m = 1, k = 100, b = 10;
-
-cShapeLine* l0;
-cShapeLine* l1;
-cShapeLine* l2;
-
+MatchingTriangle* test_triangle;
 
 
 // flag to indicate if the haptic simulation currently running
@@ -142,6 +168,7 @@ void close(void);
 */
 //==============================================================================
 
+cMultiMesh* object;
 int main(int argc, char* argv[])
 {
 	//--------------------------------------------------------------------------
@@ -286,102 +313,11 @@ int main(int argc, char* argv[])
 	world->addChild(cursor);
 
 	// ================================================================================================
-	// shape matching with basic sphere particles
-	// ================================================================================================
-
-	sphere0 = new MyShapeMachingObject(new cShapeSphere(0.01), cVector3d(0, 0, 0.05));
-	sphere0->m_mass = 50;
-	sphere0->m_spring = 1000;
-	sphere0->m_damper = 50;
-	sphere0->m_object->setEnabled(0);
-	world->addChild(sphere0->m_object);
-
-	ground = new cShapeBox(1, 1, 0.01);
-	ground->setLocalPos(cVector3d(0, 0, -0.005));
-	ground->setEnabled(0);
-	world->addChild(ground);
-
-	for (int i = 0; i < 0; i++) {
-		cVector3d p(rand() - RAND_MAX / 2, rand() - RAND_MAX / 2, rand() - RAND_MAX / 2);
-		p.normalize();
-		p *= 0.03;
-		auto s = new MyShapeMachingObject(new cShapeSphere(0.01), p);
-		s->m_mass = 1.0;
-		s->m_spring = 75;
-		s->m_damper = 5;
-		sphereShapeMatch.push_back(s);
-		world->addChild(sphereShapeMatch.back()->m_object);
-	}
-
-	// ================================================================================================
 	// shape matching with 1 triangle
 	// ================================================================================================
 
-	shapeMatchTriangle = new cMesh();
-	op0 = cVector3d(0.02, -0.02, 0);
-	op1 = cVector3d(0.02, 0.03, 0);
-	op2 = cVector3d(-0.03, 0, 0.02);
-	shapeMatchTriangle->newVertex(op0);
-	shapeMatchTriangle->newVertex(op1);
-	shapeMatchTriangle->newVertex(op2);
-	shapeMatchTriangle->setVertexColor(cColorf(1, 1, 1, 1));
-	shapeMatchTriangle->newTriangle(0, 1, 2);
-	world->addChild(shapeMatchTriangle);
 
-	l0 = new cShapeLine();
-	l1 = new cShapeLine();
-	l2 = new cShapeLine();
-	world->addChild(l0);
-	world->addChild(l1);
-	world->addChild(l2);
-
-
-
-
-
-
-
-
-
-
-	cMultiMesh* object = new cMultiMesh();
-	
-	// load geometry from file and compute additional properties
-	object->loadFromFile("/home/kronos/Downloads/chai3d-master/templates/project/Meshes/WhipperNudeS.obj");
-	object->createAABBCollisionDetector(0.0);
-	object->computeBTN();
-	
-	// obtain the first (and only) mesh from the object
-	cMesh* mesh = object->getMesh(0);
-
-	// replace the object's material with a custom one
-	mesh->m_material = cMaterial::create();
-	mesh->m_material->setWhite();
-	mesh->m_material->setUseHapticShading(true);
-	object->setStiffness(2000.0, true);
-
-	// create a colour texture map for this mesh object
-	cTexture2dPtr albedoMap = cTexture2d::create();
-	albedoMap->loadFromFile("images/bumps.png");
-	albedoMap->setWrapModeS(GL_REPEAT);
-	albedoMap->setWrapModeT(GL_REPEAT);
-	albedoMap->setUseMipmaps(true);
-
-	// assign textures to the mesh
-	mesh->m_texture = albedoMap;
-	mesh->setUseTexture(true);
-
-	// set the position of this object
-	double xpos = 0;
-	double ypos = 0;
-	object->setLocalPos(xpos, ypos);
-
-	world->clearAllChildren();
-	world->addChild(object);
-
-
-
-
+	test_triangle = new MatchingTriangle();
 
 	//--------------------------------------------------------------------------
 	// HAPTIC DEVICE
@@ -415,7 +351,6 @@ int main(int argc, char* argv[])
 	// if the device has a gripper, enable the gripper to simulate a user switch
 	hapticDevice->setEnableGripperUserSwitch(true);
 
-
 	//--------------------------------------------------------------------------
 	// WIDGETS
 	//--------------------------------------------------------------------------
@@ -427,6 +362,25 @@ int main(int argc, char* argv[])
 	labelRates = new cLabel(font);
 	labelRates->m_fontColor.setWhite();
 	camera->m_frontLayer->addChild(labelRates);
+
+	object = new cMultiMesh();
+	
+	// load geometry from file and compute additional properties
+	object->loadFromFile("/home/kronos/Downloads/chai3d-master/templates/project/Meshes/monkey.obj");
+	object->createAABBCollisionDetector(0.1);
+	object->computeBTN();
+	
+	// obtain the first (and only) mesh from the object
+	cMesh* mesh = object->getMesh(0);
+
+	// replace the object's material with a custom one
+	mesh->m_material = cMaterial::create();
+	mesh->m_material->setWhite();
+	mesh->m_material->setUseHapticShading(true);
+	object->setStiffness(2000.0, true);
+
+	world->clearAllChildren();
+	world->addChild(object);
 
 
 	//--------------------------------------------------------------------------
@@ -602,6 +556,171 @@ void updateGraphics(void)
 
 //------------------------------------------------------------------------------
 
+void MatchingTriangle::movePoint(uint index)
+{
+	double delta = 0.001;
+	auto p = triangle->m_vertices->getLocalPos(index);
+
+	forces[index] += (originalPoints[index] - p) * k - velocities[index] * b;
+	
+	velocities[index] += forces[index] * delta / m;
+	
+	p += velocities[index] * delta;
+	
+	triangle->m_vertices->setLocalPos(index, p);
+}
+
+auto radius = 0.01;
+bool MatchingTriangle::updateLine(uint indexP0, uint indexP1, cVector3d &position)
+{
+	auto p0 = triangle->m_vertices->getLocalPos(indexP0);
+	auto p1 = triangle->m_vertices->getLocalPos(indexP1);
+
+	bool contact = false;
+	// cursor sphere touching line segment p0 p1
+	auto d = cursor->getLocalPos() - p0;
+	auto l01 = p1 - p0;
+	auto lerp_amount = d.dot(l01) / l01.dot(l01);
+	auto proj = l01 * lerp_amount;
+
+	if (lerp_amount >= 0 && lerp_amount <= 1) {
+		auto o = d - proj;
+		auto penetration_depth = radius - o.length();
+		o.normalize();
+		if (penetration_depth > 0) {
+			contact = 1;
+			// compute cursor position
+			auto target_contact = p0 + proj;
+			cursor->setLocalPos(target_contact + o * radius);
+			// apply forces to the triangle
+			auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+			forces[indexP0] = fd * (1 - lerp_amount) * penetration_depth  * 1000;
+			forces[indexP1] = fd * (lerp_amount) * penetration_depth * 1000;
+		}
+	}
+
+	return contact;
+}
+
+bool MatchingTriangle::updatePoint(uint index, cVector3d &position)
+{
+	bool contact = false;
+	auto p0 = triangle->m_vertices->getLocalPos(index);
+
+	auto d = cursor->getLocalPos() - p0;
+	auto f = d.length() - radius;
+	if (f < 0) {
+		d.normalize();
+		cursor->setLocalPos(p0 + d * (radius));
+		contact = 1;
+		auto fd = -(cursor->getLocalPos() - position); fd.normalize();
+		forces[index] = -f * fd * 900;
+	}
+
+	return contact;
+}
+
+bool MatchingTriangle::updateTriangle(cVector3d &force, cVector3d &	position){
+	auto p0 = triangle->m_vertices->getLocalPos(0);
+	auto p1 = triangle->m_vertices->getLocalPos(1);
+	auto p2 = triangle->m_vertices->getLocalPos(2);
+
+	forces[0] = forces[1] = forces[2] = cVector3d(0, 0, 0);
+
+	bool contact = 0;
+	auto normal = (p1 - p0); normal.cross(p2 - p0); normal.normalize();
+	auto proj = (cursor->getLocalPos() - p0);
+	auto proj_dot_normal = proj.dot(normal);
+	auto proj_sign = (proj_dot_normal > 0) ? 1 : -1;
+	proj = proj_dot_normal * normal;
+	{
+		// check cursor sphere against the face
+		auto proj_face = cursor->getLocalPos() - proj;
+		
+		// calculating barycentric 
+		cVector3d barycentric;
+		{ auto d = p1 - p0; d.cross(proj_face - p0); barycentric.z(d.length() * (d.z() / abs(d.z()))); }
+		{ auto d = p2 - p1; d.cross(proj_face - p1); barycentric.x(d.length() * (d.z() / abs(d.z()))); }
+		{ auto d = p0 - p2; d.cross(proj_face - p2); barycentric.y(d.length() * (d.z() / abs(d.z()))); }
+		barycentric.normalize();
+
+		// cursor sphere touching triangle face
+		if (abs(proj_dot_normal) < radius && barycentric.x() >= 0 && barycentric.y() >= 0 && barycentric.z() >= 0
+			&& barycentric.x() <= 1 && barycentric.y() <= 1 && barycentric.z() <= 1) {
+			cursor->setLocalPos(proj_face + normal * radius * proj_dot_normal / abs(proj_dot_normal));
+			contact = 1;
+
+			// direction * barycentric coordinate (weight) * penetration depth * sign * stiffness
+			forces[0] = -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+			forces[1] = -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+			forces[2] = -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+
+		}
+	}
+
+	return contact;
+}
+
+void MatchingTriangle::update(cVector3d &force, cVector3d &	position){
+	/////////////////////////////////////////////////////////////////////
+	// haptic sphere cursor against 1 triangle stuff
+	/////////////////////////////////////////////////////////////////////
+
+	auto p0 = triangle->m_vertices->getLocalPos(0);
+	auto p1 = triangle->m_vertices->getLocalPos(1);
+	auto p2 = triangle->m_vertices->getLocalPos(2);
+
+	bool contact = 0;
+
+	contact = updateTriangle(force, position);
+
+	if (!contact)
+	{
+		contact = test_triangle->updateLine(0, 1, position);
+	}
+	if (!contact)
+	{
+		contact = test_triangle->updateLine(1, 2, position);
+	}
+	if (!contact)
+	{
+		contact = test_triangle->updateLine(0, 2, position);
+	}
+
+	if (!contact)
+	{
+		contact = test_triangle->updatePoint(0, position);
+	}
+	if (!contact)
+	{
+		contact = test_triangle->updatePoint(1, position);
+	}
+	if (!contact)
+	{
+		contact = test_triangle->updatePoint(2, position);
+	}
+
+	force = (cursor->getLocalPos() - position) * 2000;
+
+
+	// update euler against the shape matching triangle
+	{
+		movePoint(0);
+		movePoint(1);
+		movePoint(2);
+	}
+
+	// update visual springs
+	{
+		l0->m_pointA = p0;
+		l1->m_pointA = p1;
+		l2->m_pointA = p2;
+		l0->m_pointB = originalPoints[0];
+		l1->m_pointB = originalPoints[1];
+		l2->m_pointB = originalPoints[2];
+	}
+}
+
 void updateHaptics(void)
 {
 	// simulation in now running
@@ -645,200 +764,8 @@ void updateHaptics(void)
 		cVector3d torque(0, 0, 0);
 		double gripperForce = 0.0;
 
-		sphere0->Update(0.001, position, force);
-		for (auto& a : sphereShapeMatch) {
-			a->Update(0.001, position, force);
-		}
 
-
-		/////////////////////////////////////////////////////////////////////
-		// haptic sphere cursor against 1 triangle stuff
-		/////////////////////////////////////////////////////////////////////
-
-
-		auto radius = 0.01;
-		auto p0 = shapeMatchTriangle->m_vertices->getLocalPos(0);
-		auto p1 = shapeMatchTriangle->m_vertices->getLocalPos(1);
-		auto p2 = shapeMatchTriangle->m_vertices->getLocalPos(2);
-
-		f0 = f1 = f2 = cVector3d(0, 0, 0);
-
-		bool contact = 0;
-		auto normal = (p1 - p0); normal.cross(p2 - p0); normal.normalize();
-		auto proj = (cursor->getLocalPos() - p0);
-		auto proj_dot_normal = proj.dot(normal);
-		auto proj_sign = (proj_dot_normal > 0) ? 1 : -1;
-		proj = proj_dot_normal * normal;
-
-		if (!contact)
-		{
-			// check cursor sphere against the face
-			auto proj_face = cursor->getLocalPos() - proj;
-			
-			// calculating barycentric 
-			cVector3d barycentric;
-			{ auto d = p1 - p0; d.cross(proj_face - p0); barycentric.z(d.length() * (d.z() / abs(d.z()))); }
-			{ auto d = p2 - p1; d.cross(proj_face - p1); barycentric.x(d.length() * (d.z() / abs(d.z()))); }
-			{ auto d = p0 - p2; d.cross(proj_face - p2); barycentric.y(d.length() * (d.z() / abs(d.z()))); }
-			barycentric.normalize();
- 
-			// cursor sphere touching triangle face
-			if (abs(proj_dot_normal) < radius && barycentric.x() >= 0 && barycentric.y() >= 0 && barycentric.z() >= 0
-				&& barycentric.x() <= 1 && barycentric.y() <= 1 && barycentric.z() <= 1) {
-				cursor->setLocalPos(proj_face + normal * radius * proj_dot_normal / abs(proj_dot_normal));
-				contact = 1;
-
-				// direction * barycentric coordinate (weight) * penetration depth * sign * stiffness
-				f0 = -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
-				f1 = -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
-				f2 = -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
-
-			}
-		}
-		if (!contact)
-		{
-			// cursor sphere touching line segment p0 p1
-			auto d = cursor->getLocalPos() - p0;
-			auto l01 = p1 - p0;
-			auto lerp_amount = d.dot(l01) / l01.dot(l01);
-			auto proj = l01 * lerp_amount;
-
-			if (lerp_amount >= 0 && lerp_amount <= 1) {
-				auto o = d - proj;
-				auto penetration_depth = radius - o.length();
-				o.normalize();
-				if (penetration_depth > 0) {
-					contact = 1;
-					// compute cursor position
-					auto target_contact = p0 + proj;
-					cursor->setLocalPos(target_contact + o * radius);
-					// apply forces to the triangle
-					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
-					f0 = fd * (1 - lerp_amount) * penetration_depth  * 1000;
-					f1 = fd * (lerp_amount) * penetration_depth * 1000;
-				}
-			}
-		}
-		if (!contact)
-		{
-			// cursor sphere touching line segment p0 p1
-			auto d = cursor->getLocalPos() - p1;
-			auto l01 = p2 - p1;
-			auto lerp_amount = d.dot(l01) / l01.dot(l01);
-			auto proj = l01 * lerp_amount;
-
-			if (lerp_amount >= 0 && lerp_amount <= 1) {
-				auto o = d - proj;
-				auto penetration_depth = radius - o.length();
-				o.normalize();
-				if (penetration_depth > 0) {
-					contact = 1;
-					// compute cursor position
-					auto target_contact = p1 + proj;
-					cursor->setLocalPos(target_contact + o * radius);
-					// apply forces to the triangle
-					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
-					f1 = fd * (1 - lerp_amount) * penetration_depth * 1000;
-					f2 = fd * (lerp_amount)* penetration_depth * 1000;
-				}
-			}
-		}
-		if (!contact)
-		{
-			// cursor sphere touching line segment p0 p1
-			auto d = cursor->getLocalPos() - p2;
-			auto l01 = p0 - p2;
-			auto lerp_amount = d.dot(l01) / l01.dot(l01);
-			auto proj = l01 * lerp_amount;
-
-			if (lerp_amount >= 0 && lerp_amount <= 1) {
-				auto o = d - proj;
-				auto penetration_depth = radius - o.length();
-				o.normalize();
-				if (penetration_depth > 0) {
-					contact = 1;
-					// compute cursor position
-					auto target_contact = p2 + proj;
-					cursor->setLocalPos(target_contact + o * radius);
-					// apply forces to the triangle
-					auto fd = -(cursor->getLocalPos() - position); fd.normalize();
-					f2 = fd * (1 - lerp_amount) * penetration_depth * 1000;
-					f0 = fd * (lerp_amount)* penetration_depth * 1000;
-				}
-			}
-		}
-
-		if (!contact)
-		{
-			// cursor sphere touching corner/vertex
-			auto d = cursor->getLocalPos() - p0;
-			auto f = d.length() - radius;
-			if (f < 0) {
-				d.normalize();
-				cursor->setLocalPos(p0 + d * (radius));
-				contact = 1;
-				auto fd = -(cursor->getLocalPos() - position); fd.normalize();
-				f0 = -f * fd * 900;
-			}
-		}
-		if (!contact)
-		{
-			// cursor sphere touching corner/vertex
-			auto d = cursor->getLocalPos() - p1;
-			auto f = d.length() - radius;
-			if (f < 0) {
-				d.normalize();
-				cursor->setLocalPos(p1 + d * (radius));
-				contact = 1;
-				f1 = -(cursor->getLocalPos() - position) * 900;
-			}
-		}
-		if (!contact)
-		{
-			// cursor sphere touching corner/vertex
-			auto d = cursor->getLocalPos() - p2;
-			auto f = d.length() - radius;
-			if (f < 0) {
-				d.normalize();
-				cursor->setLocalPos(p2 + d * (radius));
-				contact = 1;
-				f2 = -(cursor->getLocalPos() - position) * 900;
-			}
-		}
-
-		force = (cursor->getLocalPos() - position) * 2000;
-
-
-		// update euler against the shape matching triangle
-		{
-			double delta = 0.001;
-
-			f0 += (op0 - p0) * k - v0 * b;
-			f1 += (op1 - p1) * k - v1 * b;
-			f2 += (op2 - p2) * k - v2 * b;
-
-			v0 += f0 * delta / m;
-			v1 += f1 * delta / m;
-			v2 += f2 * delta / m;
-
-			p0 += v0 * delta;
-			p1 += v1 * delta;
-			p2 += v2 * delta;
-
-			shapeMatchTriangle->m_vertices->setLocalPos(0, p0);
-			shapeMatchTriangle->m_vertices->setLocalPos(1, p1);
-			shapeMatchTriangle->m_vertices->setLocalPos(2, p2);
-		}
-
-		// update visual springs
-		{
-			l0->m_pointA = p0;
-			l1->m_pointA = p1;
-			l2->m_pointA = p2;
-			l0->m_pointB = op0;
-			l1->m_pointB = op1;
-			l2->m_pointB = op2;
-		}
+		test_triangle->update(force, position);
 
 		/////////////////////////////////////////////////////////////////////
 		// APPLY FORCES

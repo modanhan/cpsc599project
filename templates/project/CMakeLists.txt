@@ -123,6 +123,7 @@ endif ()
 
 # target executable
 add_executable (${PROJECT_NAME} application.cpp)
+target_sources(${PROJECT_NAME} PUBLIC MyPhysicsObject.cpp)
 target_link_libraries (${PROJECT_NAME} ${CHAI3D_LIBRARIES} ${GLFW_LIBRARIES})
 
 # OS specific adjustments

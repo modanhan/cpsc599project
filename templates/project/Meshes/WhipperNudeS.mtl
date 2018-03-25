@@ -1,8 +1,8 @@
 # Blender MTL File: 'WhipperNude.obj'
 # Material Count: 5
 
-newmtl WhipperNude_Body.001
-Ns 94.117647
+newmtl WhipperNude_Body
+Ns 96.078431
 Ka 1.000000 1.000000 1.000000
 Kd 0.640000 0.640000 0.640000
 Ks 0.500000 0.500000 0.500000
@@ -11,8 +11,8 @@ Ni 1.000000
 d 1.000000
 illum 2
 
-newmtl WhipperNude_Feet.001
-Ns 94.117647
+newmtl WhipperNude_Feet
+Ns 96.078431
 Ka 1.000000 1.000000 1.000000
 Kd 0.640000 0.640000 0.640000
 Ks 0.500000 0.500000 0.500000
@@ -21,8 +21,8 @@ Ni 1.000000
 d 1.000000
 illum 2
 
-newmtl WhipperNude_Hair.001
-Ns 94.117647
+newmtl WhipperNude_Hair
+Ns 96.078431
 Ka 1.000000 1.000000 1.000000
 Kd 0.640000 0.640000 0.640000
 Ks 0.500000 0.500000 0.500000
@@ -31,8 +31,8 @@ Ni 1.000000
 d 1.000000
 illum 2
 
-newmtl WhipperNude_Hands.001
-Ns 94.117647
+newmtl WhipperNude_Hands
+Ns 96.078431
 Ka 1.000000 1.000000 1.000000
 Kd 0.640000 0.640000 0.640000
 Ks 0.500000 0.500000 0.500000
@@ -41,8 +41,8 @@ Ni 1.000000
 d 1.000000
 illum 2
 
-newmtl WhipperNude_Head.001
-Ns 94.117647
+newmtl WhipperNude_Head
+Ns 96.078431
 Ka 1.000000 1.000000 1.000000
 Kd 0.640000 0.640000 0.640000
 Ks 0.500000 0.500000 0.500000
