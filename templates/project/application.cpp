@@ -14,6 +14,7 @@
 
 #include <cmath>
 
+#define uint unsigned int
 
 using namespace chai3d;
 using namespace std;
@@ -276,7 +277,7 @@ int main(int argc, char* argv[])
 	world->addChild(camera);
 
 	// position and orient the camera
-	camera->set(cVector3d(0.9, 0.0, 0.0),    // camera position (eye)
+	camera->set(cVector3d(0.2, 0.0, 0.0),    // camera position (eye)
 		cVector3d(0.0, 0.0, 0.0),    // look at position (target)
 		cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
 
@@ -366,7 +367,7 @@ int main(int argc, char* argv[])
 	object = new cMultiMesh();
 	
 	// load geometry from file and compute additional properties
-	object->loadFromFile("/home/kronos/Downloads/chai3d-master/templates/project/Meshes/monkey.obj");
+	object->loadFromFile("Meshes/monkey.3ds");
 	object->createAABBCollisionDetector(0.1);
 	object->computeBTN();
 	
@@ -379,7 +380,7 @@ int main(int argc, char* argv[])
 	mesh->m_material->setUseHapticShading(true);
 	object->setStiffness(2000.0, true);
 
-	world->clearAllChildren();
+	//world->clearAllChildren();
 	world->addChild(object);
 
 
@@ -721,6 +722,20 @@ void MatchingTriangle::update(cVector3d &force, cVector3d &	position){
 	}
 }
 
+cVector3d tool_center = cVector3d(0, 0, 0);
+void move_center(cVector3d pos)
+{
+	if (pos.length() > 0.03)
+	{
+		tool_center += cNormalize(pos)*0.0001;
+
+		cVector3d new_pos = camera->getLocalPos() + cNormalize(pos)*0.0001;
+		camera->set(new_pos,							// camera position (eye)
+			new_pos + (cVector3d(-1.0, 0.0, 0.0)),		// look at position (target)
+			cVector3d(0.0, 0.0, 1.0));					// direction of the (up) vector
+
+	}
+}
 void updateHaptics(void)
 {
 	// simulation in now running
@@ -739,6 +754,7 @@ void updateHaptics(void)
 		// read position 
 		cVector3d position;
 		hapticDevice->getPosition(position);
+		move_center(position);
 
 		// read orientation 
 		cMatrix3d rotation;
@@ -753,7 +769,7 @@ void updateHaptics(void)
 		/////////////////////////////////////////////////////////////////////
 
 		// update position and orienation of cursor
-		cursor->setLocalPos(position);
+		cursor->setLocalPos(position + tool_center);
 		cursor->setLocalRot(rotation);
 
 		/////////////////////////////////////////////////////////////////////
@@ -765,7 +781,7 @@ void updateHaptics(void)
 		double gripperForce = 0.0;
 
 
-		test_triangle->update(force, position);
+		test_triangle->update(force, position + tool_center);
 
 		/////////////////////////////////////////////////////////////////////
 		// APPLY FORCES
