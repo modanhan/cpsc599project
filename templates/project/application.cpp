@@ -65,6 +65,174 @@ cLabel* labelRates;
 // a small sphere (cursor) representing the haptic device 
 cShapeSphere* cursor;
 
+
+auto radius = 0.01;
+struct MatchingShape
+{
+	cMultiMesh* object;
+	cMesh* mesh;
+	vector<cVector3d> originalPoints = vector<cVector3d>(3);
+	vector<cVector3d> forces = vector<cVector3d>(3);
+	vector<cVector3d> velocities = vector<cVector3d>(3);
+
+	double m = 1, k = 100, b = 10;
+
+	MatchingShape(string);
+
+	void update(cVector3d &force, cVector3d &position);
+	bool updateTriangle(cVector3d &force, cVector3d &position, unsigned int);
+	bool updateLine(uint indexP0, uint indexP1, cVector3d &position);
+	bool updatePoint(uint index, cVector3d &position);
+	void movePoint(uint index);
+};
+
+MatchingShape::MatchingShape(string fileName) {
+	object = new cMultiMesh();
+
+	// load geometry from file and compute additional properties
+	object->loadFromFile(fileName);
+	object->createAABBCollisionDetector(0.1);
+	object->computeBTN();
+
+	// obtain the first (and only) mesh from the object
+	cMesh* mesh = object->getMesh(0);
+
+	// replace the object's material with a custom one
+	mesh->m_material = cMaterial::create();
+	mesh->m_material->setWhite();
+	mesh->m_material->setUseHapticShading(true);
+	object->setStiffness(2000.0, true);
+
+	//world->clearAllChildren();
+	world->addChild(object);
+
+	originalPoints = vector<cVector3d>(mesh->m_vertices->getNumElements());
+	forces = vector<cVector3d>(mesh->m_vertices->getNumElements());
+	velocities = vector<cVector3d>(mesh->m_vertices->getNumElements());
+
+	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
+	{
+		originalPoints[i] = mesh->m_vertices->getLocalPos(i);
+		forces[i] = cVector3d(0,0,0);
+		velocities[i] = cVector3d(0, 0, 0);
+	}
+}
+
+void MatchingShape::update(cVector3d &force, cVector3d &position)
+{
+	mesh = object->getMesh(0);
+	for(unsigned int i=0; i<mesh->getNumTriangles(); i++){
+
+		updateTriangle(force, position,  i);
+	}
+
+	force = (cursor->getLocalPos() - position) * 2000;
+
+	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
+	{
+		movePoint(i);
+	}
+
+	/*if (!contact)
+	{
+		contact = test_triangle->updateLine(0, 1, position);
+	}
+	if (!contact)
+	{
+		contact = test_triangle->updateLine(1, 2, position);
+	}
+	if (!contact)
+	{
+		contact = test_triangle->updateLine(0, 2, position);
+	}
+
+	if (!contact)
+	{
+		contact = test_triangle->updatePoint(0, position);
+	}
+	if (!contact)
+	{
+		contact = test_triangle->updatePoint(1, position);
+	}
+	if (!contact)
+	{
+		contact = test_triangle->updatePoint(2, position);
+	}
+
+	force = (cursor->getLocalPos() - position) * 2000;*/
+
+	// update visual springs
+	/*{
+		l0->m_pointA = p0;
+		l1->m_pointA = p1;
+		l2->m_pointA = p2;
+		l0->m_pointB = originalPoints[0];
+		l1->m_pointB = originalPoints[1];
+		l2->m_pointB = originalPoints[2];
+	}*/
+}
+
+bool MatchingShape::updateTriangle(cVector3d &force, cVector3d &position, unsigned int index) {
+	
+	unsigned int index0 = (mesh->m_triangles->getVertexIndex0(index));
+	cVector3d p0 = mesh->m_vertices->getLocalPos(index0);
+
+	unsigned int index1 = (mesh->m_triangles->getVertexIndex1(index));
+	cVector3d p1 = mesh->m_vertices->getLocalPos(index1);
+
+	unsigned int index2 = (mesh->m_triangles->getVertexIndex2(index));
+	cVector3d p2 = mesh->m_vertices->getLocalPos(index2);
+
+	forces[index0] = forces[index1] = forces[index2] = cVector3d(0, 0, 0);
+
+	bool contact = 0;
+	auto normal = (p1 - p0); normal.cross(p2 - p0); normal.normalize();
+	auto proj = (cursor->getLocalPos() - p0);
+	auto proj_dot_normal = proj.dot(normal);
+	auto proj_sign = (proj_dot_normal > 0) ? 1 : -1;
+	proj = proj_dot_normal * normal;
+	{
+		// check cursor sphere against the face
+		auto proj_face = cursor->getLocalPos() - proj;
+
+		// calculating barycentric 
+		cVector3d barycentric;
+		{ auto d = p1 - p0; d.cross(proj_face - p0); barycentric.z(d.length() * (d.z() / abs(d.z()))); }
+		{ auto d = p2 - p1; d.cross(proj_face - p1); barycentric.x(d.length() * (d.z() / abs(d.z()))); }
+		{ auto d = p0 - p2; d.cross(proj_face - p2); barycentric.y(d.length() * (d.z() / abs(d.z()))); }
+		barycentric.normalize();
+
+		// cursor sphere touching triangle face
+		if (abs(proj_dot_normal) < radius && barycentric.x() >= 0 && barycentric.y() >= 0 && barycentric.z() >= 0
+			&& barycentric.x() <= 1 && barycentric.y() <= 1 && barycentric.z() <= 1) {
+			cursor->setLocalPos(proj_face + normal * radius * proj_dot_normal / abs(proj_dot_normal));
+			contact = 1;
+
+			// direction * barycentric coordinate (weight) * penetration depth * sign * stiffness
+			forces[index0] = -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+			forces[index1] = -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+			forces[index2] = -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+
+		}
+	}
+
+	return contact;
+}
+
+void MatchingShape::movePoint(uint index)
+{
+	double delta = 0.001;
+	auto p = mesh->m_vertices->getLocalPos(index);
+
+	forces[index] += (originalPoints[index] - p) * k - velocities[index] * b;
+
+	velocities[index] += forces[index] * delta / m;
+
+	p += velocities[index] * delta;
+
+	mesh->m_vertices->setLocalPos(index, p);
+}
+
 struct MatchingTriangle{
 	cMesh* triangle;
 	vector<cVector3d> originalPoints = vector<cVector3d>(3);
@@ -169,7 +337,7 @@ void close(void);
 */
 //==============================================================================
 
-cMultiMesh* object;
+MatchingShape* test_shape;
 int main(int argc, char* argv[])
 {
 	//--------------------------------------------------------------------------
@@ -318,7 +486,7 @@ int main(int argc, char* argv[])
 	// ================================================================================================
 
 
-	test_triangle = new MatchingTriangle();
+	//test_triangle = new MatchingTriangle();
 
 	//--------------------------------------------------------------------------
 	// HAPTIC DEVICE
@@ -352,6 +520,11 @@ int main(int argc, char* argv[])
 	// if the device has a gripper, enable the gripper to simulate a user switch
 	hapticDevice->setEnableGripperUserSwitch(true);
 
+
+
+	test_shape = new MatchingShape("Meshes/monkey.3ds");
+
+
 	//--------------------------------------------------------------------------
 	// WIDGETS
 	//--------------------------------------------------------------------------
@@ -363,25 +536,6 @@ int main(int argc, char* argv[])
 	labelRates = new cLabel(font);
 	labelRates->m_fontColor.setWhite();
 	camera->m_frontLayer->addChild(labelRates);
-
-	object = new cMultiMesh();
-	
-	// load geometry from file and compute additional properties
-	object->loadFromFile("Meshes/monkey.3ds");
-	object->createAABBCollisionDetector(0.1);
-	object->computeBTN();
-	
-	// obtain the first (and only) mesh from the object
-	cMesh* mesh = object->getMesh(0);
-
-	// replace the object's material with a custom one
-	mesh->m_material = cMaterial::create();
-	mesh->m_material->setWhite();
-	mesh->m_material->setUseHapticShading(true);
-	object->setStiffness(2000.0, true);
-
-	//world->clearAllChildren();
-	world->addChild(object);
 
 
 	//--------------------------------------------------------------------------
@@ -571,7 +725,6 @@ void MatchingTriangle::movePoint(uint index)
 	triangle->m_vertices->setLocalPos(index, p);
 }
 
-auto radius = 0.01;
 bool MatchingTriangle::updateLine(uint indexP0, uint indexP1, cVector3d &position)
 {
 	auto p0 = triangle->m_vertices->getLocalPos(indexP0);
@@ -780,8 +933,9 @@ void updateHaptics(void)
 		cVector3d torque(0, 0, 0);
 		double gripperForce = 0.0;
 
+		test_shape->update(force, position + tool_center);
 
-		test_triangle->update(force, position + tool_center);
+		//test_triangle->update(force, position + tool_center);
 
 		/////////////////////////////////////////////////////////////////////
 		// APPLY FORCES
