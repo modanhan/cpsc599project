@@ -65,6 +65,10 @@ void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &curs
 	for (auto& e : edges) {
 		updateLine(e.first, e.second, position, cursorPosition);
 	}
+	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
+	{
+		updatePoint(i, position, cursorPosition);
+	}
 
 	force = (cursorPosition - position) * 2000;
 
@@ -148,6 +152,23 @@ bool MatchingMesh::updateLine(unsigned int indexP0, unsigned int indexP1, chai3d
 			forces[indexP0] += fd * (1 - lerp_amount) * penetration_depth * 1000;
 			forces[indexP1] += fd * (lerp_amount)* penetration_depth * 1000;
 		}
+	}
+
+	return contact;
+}
+
+bool MatchingMesh::updatePoint(unsigned int index, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition) {
+	bool contact = false;
+	auto p0 = mesh->m_vertices->getLocalPos(index);
+
+	auto d = cursorPosition - p0;
+	auto f = d.length() - radius;
+	if (f < 0) {
+		d.normalize();
+		cursorPosition = (p0 + d * (radius));
+		contact = 1;
+		auto fd = -(cursorPosition - position); fd.normalize();
+		forces[index] = -f * fd * 1000;
 	}
 
 	return contact;
