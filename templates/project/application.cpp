@@ -10,6 +10,7 @@
 #include <GLFW/glfw3.h>
 //------------------------------------------------------------------------------
 
+#include "loader.hpp"
 #include "MyPhysicsObject.h"
 
 #include <cmath>
@@ -95,16 +96,52 @@ MatchingShape::MatchingShape(string fileName) {
 	object->computeBTN();
 
 	// obtain the first (and only) mesh from the object
-	cMesh* mesh = object->getMesh(0);
+	//cMesh* mesh = object->getMesh(0);
+	mesh = new cMesh();
+
+	vector<cVector3d> vertices;
+	vector<cVector3d> normals;
+	vector<cVector3d> uvs;
+	vector<unsigned int> indices;
+	
+	loadOBJ("Meshes/monkey.obj", &vertices, &normals, &uvs, &indices);
+
+	/*vertices = {cVector3d(0.1,0.1,0), cVector3d(-0.1,0.1,0.05), cVector3d(-0.1,-0.1,0.05), cVector3d(0.1,-0.1,0)};
+	indices = {0,1,2, 2,3,0};*/
+
+	cout << vertices.size() << endl;
+	cout << indices.size() << endl;
+	for (unsigned int i = 0; i < vertices.size(); i++)
+	{
+		//cout << vertices[i] << endl;
+		mesh->newVertex(vertices[i], normals[i]);
+
+		mesh->setVertexColor(cColorf(1, 1, 1, 1));
+	}
+
+	for (unsigned int i = 0; i < indices.size()/3; i++)
+	{
+		//cout << indices[i * 3] << ", " << indices[i * 3 + 1] << ", " << indices[i * 3 + 2] << endl;
+		mesh->newTriangle(indices[i*3], indices[i*3+1], indices[i*3+2]);
+	}
+
+	/*auto op0 = cVector3d(0.02, -0.02, 0);
+	auto op1 = cVector3d(0.02, 0.03, 0);
+	auto op2 = cVector3d(-0.03, 0, 0.02);
+	mesh->newVertex(op0);
+	mesh->newVertex(op1);
+	mesh->newVertex(op2);
+	mesh->setVertexColor(cColorf(1, 1, 1, 1));
+	mesh->newTriangle(0, 1, 2);*/
 
 	// replace the object's material with a custom one
 	mesh->m_material = cMaterial::create();
 	mesh->m_material->setWhite();
 	mesh->m_material->setUseHapticShading(true);
-	object->setStiffness(2000.0, true);
+	//object->setStiffness(2000.0, true);
 
 	//world->clearAllChildren();
-	world->addChild(object);
+	world->addChild(mesh);
 
 	originalPoints = vector<cVector3d>(mesh->m_vertices->getNumElements());
 	forces = vector<cVector3d>(mesh->m_vertices->getNumElements());
@@ -120,7 +157,7 @@ MatchingShape::MatchingShape(string fileName) {
 
 void MatchingShape::update(cVector3d &force, cVector3d &position)
 {
-	mesh = object->getMesh(0);
+	//mesh = object->getMesh(0);
 	for(unsigned int i=0; i<mesh->getNumTriangles(); i++){
 
 		updateTriangle(force, position,  i);
@@ -132,44 +169,6 @@ void MatchingShape::update(cVector3d &force, cVector3d &position)
 	{
 		movePoint(i);
 	}
-
-	/*if (!contact)
-	{
-		contact = test_triangle->updateLine(0, 1, position);
-	}
-	if (!contact)
-	{
-		contact = test_triangle->updateLine(1, 2, position);
-	}
-	if (!contact)
-	{
-		contact = test_triangle->updateLine(0, 2, position);
-	}
-
-	if (!contact)
-	{
-		contact = test_triangle->updatePoint(0, position);
-	}
-	if (!contact)
-	{
-		contact = test_triangle->updatePoint(1, position);
-	}
-	if (!contact)
-	{
-		contact = test_triangle->updatePoint(2, position);
-	}
-
-	force = (cursor->getLocalPos() - position) * 2000;*/
-
-	// update visual springs
-	/*{
-		l0->m_pointA = p0;
-		l1->m_pointA = p1;
-		l2->m_pointA = p2;
-		l0->m_pointB = originalPoints[0];
-		l1->m_pointB = originalPoints[1];
-		l2->m_pointB = originalPoints[2];
-	}*/
 }
 
 bool MatchingShape::updateTriangle(cVector3d &force, cVector3d &position, unsigned int index) {

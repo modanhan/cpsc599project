@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="application.cpp" />
+    <ClCompile Include="loader.cpp" />
     <ClCompile Include="MyPhysicsObject.cpp" />
   </ItemGroup>
   <ItemGroup>
