@@ -5,12 +5,14 @@
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 //------------------------------------------------------------------------------
+#include <set>
 
 class MatchingMesh
 {
+	std::vector<bool> forceComputed;
+	std::set<std::pair<unsigned int, unsigned int>> edges;
 public:
 	double radius = 0.01;
-	chai3d::cMesh * object;
 	chai3d::cMesh* mesh;
 	std::vector<chai3d::cVector3d> originalPoints = std::vector<chai3d::cVector3d>(3);
 	std::vector<chai3d::cVector3d> forces = std::vector<chai3d::cVector3d>(3);
@@ -22,8 +24,8 @@ public:
 
 	void update(chai3d::cVector3d &force, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition);
 	bool updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition, unsigned int);
-	bool updateLine(unsigned int indexP0, unsigned int indexP1, chai3d::cVector3d &position);
-	bool updatePoint(unsigned int index, chai3d::cVector3d &position);
+	bool updateLine(unsigned int indexP0, unsigned int indexP1, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition);
+	bool updatePoint(unsigned int index, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition);
 	void movePoint(unsigned int index);
 
 	MatchingMesh();

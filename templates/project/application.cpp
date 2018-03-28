@@ -67,164 +67,6 @@ cLabel* labelRates;
 // a small sphere (cursor) representing the haptic device 
 cShapeSphere* cursor;
 
-
-auto radius = 0.01;
-struct MatchingShape
-{
-	cMesh* object;
-	cMesh* mesh;
-	vector<cVector3d> originalPoints = vector<cVector3d>(3);
-	vector<cVector3d> forces = vector<cVector3d>(3);
-	vector<cVector3d> velocities = vector<cVector3d>(3);
-
-	double m = 1, k = 100, b = 10;
-
-	MatchingShape(string);
-
-	void update(cVector3d &force, cVector3d &position);
-	bool updateTriangle(cVector3d &force, cVector3d &position, unsigned int);
-	bool updateLine(uint indexP0, uint indexP1, cVector3d &position);
-	bool updatePoint(uint index, cVector3d &position);
-	void movePoint(uint index);
-};
-
-MatchingShape::MatchingShape(string fileName) {
-	object = new cMesh();
-	mesh = new cMesh();
-
-	vector<cVector3d> vertices;
-	vector<cVector3d> normals;
-	vector<cVector3d> uvs;
-	vector<unsigned int> indices;
-	
-	loadOBJ("Meshes/monkey.obj", &vertices, &normals, &uvs, &indices);
-	object->setEnabled(0);
-
-	/*vertices = {cVector3d(0.1,0.1,0), cVector3d(-0.1,0.1,0.05), cVector3d(-0.1,-0.1,0.05), cVector3d(0.1,-0.1,0)};
-	indices = {0,1,2, 2,3,0};*/
-
-	cout << vertices.size() << endl;
-	cout << indices.size() << endl;
-	for (unsigned int i = 0; i < vertices.size(); i++)
-	{
-		mesh->newVertex(vertices[i], normals[i]);
-	}
-	mesh->setVertexColor(cColorf(1, 1, 1, 1));
-
-	for (unsigned int i = 0; i < indices.size()/3; i++)
-	{
-		//cout << indices[i * 3] << ", " << indices[i * 3 + 1] << ", " << indices[i * 3 + 2] << endl;
-		mesh->newTriangle(indices[i*3], indices[i*3+1], indices[i*3+2]);
-	}
-	mesh->computeAllNormals();
-
-	/*auto op0 = cVector3d(0.02, -0.02, 0);
-	auto op1 = cVector3d(0.02, 0.03, 0);
-	auto op2 = cVector3d(-0.03, 0, 0.02);
-	mesh->newVertex(op0);
-	mesh->newVertex(op1);
-	mesh->newVertex(op2);
-	mesh->setVertexColor(cColorf(1, 1, 1, 1));
-	mesh->newTriangle(0, 1, 2);*/
-
-	// replace the object's material with a custom one
-	mesh->m_material = cMaterial::create();
-	mesh->m_material->setBlueMediumTurquoise();
-	mesh->m_material->setUseHapticShading(true);
-	//object->setStiffness(2000.0, true);
-
-	//world->clearAllChildren();
-	world->addChild(mesh);
-
-	originalPoints = vector<cVector3d>(mesh->m_vertices->getNumElements());
-	forces = vector<cVector3d>(mesh->m_vertices->getNumElements());
-	velocities = vector<cVector3d>(mesh->m_vertices->getNumElements());
-
-	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
-	{
-		originalPoints[i] = mesh->m_vertices->getLocalPos(i);
-		forces[i] = cVector3d(0,0,0);
-		velocities[i] = cVector3d(0, 0, 0);
-	}
-}
-
-void MatchingShape::update(cVector3d &force, cVector3d &position)
-{
-	//mesh = object->getMesh(0);
-	for(unsigned int i=0; i<mesh->getNumTriangles(); i++){
-
-		updateTriangle(force, position,  i);
-	}
-
-	force = (cursor->getLocalPos() - position) * 2000;
-
-	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
-	{
-		movePoint(i);
-	}
-}
-
-bool MatchingShape::updateTriangle(cVector3d &force, cVector3d &position, unsigned int index) {
-	
-	unsigned int index0 = (mesh->m_triangles->getVertexIndex0(index));
-	cVector3d p0 = mesh->m_vertices->getLocalPos(index0);
-
-	unsigned int index1 = (mesh->m_triangles->getVertexIndex1(index));
-	cVector3d p1 = mesh->m_vertices->getLocalPos(index1);
-
-	unsigned int index2 = (mesh->m_triangles->getVertexIndex2(index));
-	cVector3d p2 = mesh->m_vertices->getLocalPos(index2);
-
-	forces[index0] = forces[index1] = forces[index2] = cVector3d(0, 0, 0);
-
-	bool contact = 0;
-	auto normal = (p1 - p0); normal.cross(p2 - p0); normal.normalize();
-	auto proj = (cursor->getLocalPos() - p0);
-	auto proj_dot_normal = proj.dot(normal);
-	auto proj_sign = (proj_dot_normal > 0) ? 1 : -1;
-	proj = proj_dot_normal * normal;
-	{
-		// check cursor sphere against the face
-		auto proj_face = cursor->getLocalPos() - proj;
-
-		// calculating barycentric 
-		cVector3d barycentric;
-		{ auto d = p1 - p0; d.cross(proj_face - p0); barycentric.z(d.length() * (d.z() / abs(d.z()))); }
-		{ auto d = p2 - p1; d.cross(proj_face - p1); barycentric.x(d.length() * (d.z() / abs(d.z()))); }
-		{ auto d = p0 - p2; d.cross(proj_face - p2); barycentric.y(d.length() * (d.z() / abs(d.z()))); }
-		barycentric.normalize();
-
-		// cursor sphere touching triangle face
-		if (abs(proj_dot_normal) < radius && barycentric.x() >= 0 && barycentric.y() >= 0 && barycentric.z() >= 0
-			&& barycentric.x() <= 1 && barycentric.y() <= 1 && barycentric.z() <= 1) {
-			cursor->setLocalPos(proj_face + normal * radius * proj_dot_normal / abs(proj_dot_normal));
-			contact = 1;
-
-			// direction * barycentric coordinate (weight) * penetration depth * sign * stiffness
-			forces[index0] = -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
-			forces[index1] = -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
-			forces[index2] = -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
-
-		}
-	}
-
-	return contact;
-}
-
-void MatchingShape::movePoint(uint index)
-{
-	double delta = 0.001;
-	auto p = mesh->m_vertices->getLocalPos(index);
-
-	forces[index] += (originalPoints[index] - p) * k - velocities[index] * b;
-
-	velocities[index] += forces[index] * delta / m;
-
-	p += velocities[index] * delta;
-
-	mesh->m_vertices->setLocalPos(index, p);
-}
-
 struct MatchingTriangle{
 	cMesh* triangle;
 	vector<cVector3d> originalPoints = vector<cVector3d>(3);
@@ -329,7 +171,6 @@ void close(void);
 */
 //==============================================================================
 
-MatchingShape* test_shape;
 MatchingMesh* test_mesh;
 
 
@@ -724,6 +565,7 @@ void MatchingTriangle::movePoint(uint index)
 
 bool MatchingTriangle::updateLine(uint indexP0, uint indexP1, cVector3d &position)
 {
+	double radius = 0.01;
 	auto p0 = triangle->m_vertices->getLocalPos(indexP0);
 	auto p1 = triangle->m_vertices->getLocalPos(indexP1);
 
@@ -755,6 +597,7 @@ bool MatchingTriangle::updateLine(uint indexP0, uint indexP1, cVector3d &positio
 
 bool MatchingTriangle::updatePoint(uint index, cVector3d &position)
 {
+	double radius = 0.01;
 	bool contact = false;
 	auto p0 = triangle->m_vertices->getLocalPos(index);
 
@@ -772,6 +615,7 @@ bool MatchingTriangle::updatePoint(uint index, cVector3d &position)
 }
 
 bool MatchingTriangle::updateTriangle(cVector3d &force, cVector3d &	position){
+	double radius = 0.01;
 	auto p0 = triangle->m_vertices->getLocalPos(0);
 	auto p1 = triangle->m_vertices->getLocalPos(1);
 	auto p2 = triangle->m_vertices->getLocalPos(2);

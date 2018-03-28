@@ -6,7 +6,6 @@ using namespace chai3d;
 
 MatchingMesh::MatchingMesh(cWorld* world)
 {
-	object = new cMesh();
 	mesh = new cMesh();
 
 	vector<cVector3d> vertices;
@@ -15,10 +14,7 @@ MatchingMesh::MatchingMesh(cWorld* world)
 	vector<unsigned int> indices;
 
 	loadOBJ("Meshes/monkey.obj", &vertices, &normals, &uvs, &indices);
-	object->setEnabled(0);
 
-	cout << vertices.size() << endl;
-	cout << indices.size() << endl;
 	for (unsigned int i = 0; i < vertices.size(); i++)
 	{
 		mesh->newVertex(vertices[i], normals[i]);
@@ -28,6 +24,12 @@ MatchingMesh::MatchingMesh(cWorld* world)
 	for (unsigned int i = 0; i < indices.size() / 3; i++)
 	{
 		mesh->newTriangle(indices[i * 3], indices[i * 3 + 1], indices[i * 3 + 2]);
+		vector<int> sorted_idx; sorted_idx.push_back(indices[i * 3 + 0]); sorted_idx.push_back(indices[i * 3 + 1]); sorted_idx.push_back(indices[i * 3 + 2]);
+		sort(sorted_idx.begin(), sorted_idx.end());
+		// ensures no duplicated/directional edges by making sure edge.first < edge.second
+		edges.insert(pair<unsigned int, unsigned int>(sorted_idx[0], sorted_idx[1]));
+		edges.insert(pair<unsigned int, unsigned int>(sorted_idx[0], sorted_idx[2]));
+		edges.insert(pair<unsigned int, unsigned int>(sorted_idx[1], sorted_idx[2]));
 	}
 	mesh->computeAllNormals();
 
@@ -56,8 +58,12 @@ MatchingMesh::~MatchingMesh()
 
 void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &cursorPosition)
 {
+	forceComputed.assign(mesh->m_vertices->getNumElements(), 0);
 	for (unsigned int i = 0; i < mesh->getNumTriangles(); i++) {
-		updateTriangle(force, position, cursorPosition, i);
+		if (updateTriangle(force, position, cursorPosition, i));
+	}
+	for (auto& e : edges) {
+		updateLine(e.first, e.second, position, cursorPosition);
 	}
 
 	force = (cursorPosition - position) * 2000;
@@ -66,6 +72,7 @@ void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &curs
 	{
 		movePoint(i);
 	}
+
 }
 
 
@@ -78,8 +85,9 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 
 	unsigned int index2 = (mesh->m_triangles->getVertexIndex2(index));
 	cVector3d p2 = mesh->m_vertices->getLocalPos(index2);
-
-	forces[index0] = forces[index1] = forces[index2] = cVector3d(0, 0, 0);
+	if (!forceComputed[index0])	forces[index0] = cVector3d(0, 0, 0);
+	if (!forceComputed[index1]) forces[index1] = cVector3d(0, 0, 0);
+	if (!forceComputed[index2])	forces[index2] = cVector3d(0, 0, 0);
 
 	bool contact = 0;
 	auto normal = (p1 - p0); normal.cross(p2 - p0); normal.normalize();
@@ -105,10 +113,40 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 			contact = 1;
 
 			// direction * barycentric coordinate (weight) * penetration depth * sign * stiffness
-			forces[index0] = -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
-			forces[index1] = -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
-			forces[index2] = -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+			forces[index0] += -normal * barycentric.x() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+			forces[index1] += -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+			forces[index2] += -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
+			forceComputed[index0] = forceComputed[index1] = forceComputed[index2] = 1;
 
+		}
+	}
+	return contact;
+}
+
+bool MatchingMesh::updateLine(unsigned int indexP0, unsigned int indexP1, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition) {
+	auto p0 = mesh->m_vertices->getLocalPos(indexP0);
+	auto p1 = mesh->m_vertices->getLocalPos(indexP1);
+
+	bool contact = false;
+	// cursor sphere touching line segment p0 p1
+	auto d = cursorPosition - p0;
+	auto l01 = p1 - p0;
+	auto lerp_amount = d.dot(l01) / l01.dot(l01);
+	auto proj = l01 * lerp_amount;
+
+	if (lerp_amount >= 0 && lerp_amount <= 1) {
+		auto o = d - proj;
+		auto penetration_depth = radius - o.length();
+		o.normalize();
+		if (penetration_depth > 0) {
+			contact = 1;
+			// compute cursor position
+			auto target_contact = p0 + proj;
+			cursorPosition = (target_contact + o * radius);
+			// apply forces to the triangle
+			auto fd = -(cursorPosition - position); fd.normalize();
+			forces[indexP0] += fd * (1 - lerp_amount) * penetration_depth * 1000;
+			forces[indexP1] += fd * (lerp_amount)* penetration_depth * 1000;
 		}
 	}
 
