@@ -21,9 +21,11 @@
   <ItemGroup>
     <ClCompile Include="application.cpp" />
     <ClCompile Include="loader.cpp" />
+    <ClCompile Include="MatchingMesh.cpp" />
     <ClCompile Include="MyPhysicsObject.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MatchingMesh.h" />
     <ClInclude Include="MyPhysicsObject.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

@@ -12,6 +12,7 @@
 
 #include "loader.hpp"
 #include "MyPhysicsObject.h"
+#include "MatchingMesh.h"
 
 #include <cmath>
 
@@ -70,7 +71,7 @@ cShapeSphere* cursor;
 auto radius = 0.01;
 struct MatchingShape
 {
-	cMultiMesh* object;
+	cMesh* object;
 	cMesh* mesh;
 	vector<cVector3d> originalPoints = vector<cVector3d>(3);
 	vector<cVector3d> forces = vector<cVector3d>(3);
@@ -88,15 +89,7 @@ struct MatchingShape
 };
 
 MatchingShape::MatchingShape(string fileName) {
-	object = new cMultiMesh();
-
-	// load geometry from file and compute additional properties
-	object->loadFromFile(fileName);
-	object->createAABBCollisionDetector(0.1);
-	object->computeBTN();
-
-	// obtain the first (and only) mesh from the object
-	//cMesh* mesh = object->getMesh(0);
+	object = new cMesh();
 	mesh = new cMesh();
 
 	vector<cVector3d> vertices;
@@ -105,6 +98,7 @@ MatchingShape::MatchingShape(string fileName) {
 	vector<unsigned int> indices;
 	
 	loadOBJ("Meshes/monkey.obj", &vertices, &normals, &uvs, &indices);
+	object->setEnabled(0);
 
 	/*vertices = {cVector3d(0.1,0.1,0), cVector3d(-0.1,0.1,0.05), cVector3d(-0.1,-0.1,0.05), cVector3d(0.1,-0.1,0)};
 	indices = {0,1,2, 2,3,0};*/
@@ -113,17 +107,16 @@ MatchingShape::MatchingShape(string fileName) {
 	cout << indices.size() << endl;
 	for (unsigned int i = 0; i < vertices.size(); i++)
 	{
-		//cout << vertices[i] << endl;
 		mesh->newVertex(vertices[i], normals[i]);
-
-		mesh->setVertexColor(cColorf(1, 1, 1, 1));
 	}
+	mesh->setVertexColor(cColorf(1, 1, 1, 1));
 
 	for (unsigned int i = 0; i < indices.size()/3; i++)
 	{
 		//cout << indices[i * 3] << ", " << indices[i * 3 + 1] << ", " << indices[i * 3 + 2] << endl;
 		mesh->newTriangle(indices[i*3], indices[i*3+1], indices[i*3+2]);
 	}
+	mesh->computeAllNormals();
 
 	/*auto op0 = cVector3d(0.02, -0.02, 0);
 	auto op1 = cVector3d(0.02, 0.03, 0);
@@ -136,7 +129,7 @@ MatchingShape::MatchingShape(string fileName) {
 
 	// replace the object's material with a custom one
 	mesh->m_material = cMaterial::create();
-	mesh->m_material->setWhite();
+	mesh->m_material->setBlueMediumTurquoise();
 	mesh->m_material->setUseHapticShading(true);
 	//object->setStiffness(2000.0, true);
 
@@ -337,6 +330,10 @@ void close(void);
 //==============================================================================
 
 MatchingShape* test_shape;
+MatchingMesh* test_mesh;
+
+
+
 int main(int argc, char* argv[])
 {
 	//--------------------------------------------------------------------------
@@ -521,7 +518,8 @@ int main(int argc, char* argv[])
 
 
 
-	test_shape = new MatchingShape("Meshes/monkey.3ds");
+//	test_shape = new MatchingShape("Meshes/monkey.3ds");
+	test_mesh = new MatchingMesh(world);
 
 
 	//--------------------------------------------------------------------------
@@ -932,7 +930,8 @@ void updateHaptics(void)
 		cVector3d torque(0, 0, 0);
 		double gripperForce = 0.0;
 
-		test_shape->update(force, position + tool_center);
+		//test_shape->update(force, position + tool_center);
+		test_mesh->update(force, position + tool_center, cursor->getLocalPos());
 
 		//test_triangle->update(force, position + tool_center);
 
