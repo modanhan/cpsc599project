@@ -5,7 +5,7 @@ using namespace chai3d;
 
 void loadOBJ(string filename, vector<cVector3d> *vertices, vector<cVector3d> *normals, vector<cVector3d> *uvs, vector<unsigned int> *inds)
 {
-	//temporal vectores to store the information until properly organized
+	//temporal vectors to store the information until properly organized
 	vector<float> vs, ns, ts;
 
 	// Create a file stream object to read mesh info
@@ -40,7 +40,7 @@ void loadOBJ(string filename, vector<cVector3d> *vertices, vector<cVector3d> *no
 				vs.push_back(stof(word));
 			}
 		}
-		//If the first word in teh line is 'vt' this is 
+		//If the first word in the line is 'vt' this is 
 		//a texture coordinate information line
 		else if (word == "vt")
 		{

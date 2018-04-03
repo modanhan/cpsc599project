@@ -4,6 +4,8 @@
 using namespace std;
 using namespace chai3d;
 
+cVector3d prevPos = cVector3d(0,0,0);
+
 MatchingMesh::MatchingMesh(cWorld* world)
 {
 	mesh = new cMesh();
@@ -60,7 +62,7 @@ void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &curs
 {
 	forceComputed.assign(mesh->m_vertices->getNumElements(), 0);
 	for (unsigned int i = 0; i < mesh->getNumTriangles(); i++) {
-		if (updateTriangle(force, position, cursorPosition, i));
+		 if (updateTriangle(force, position, cursorPosition, i));
 	}
 	for (auto& e : edges) {
 		updateLine(e.first, e.second, position, cursorPosition);
@@ -77,10 +79,42 @@ void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &curs
 		movePoint(i);
 	}
 
+	prevPos = cursorPosition;
 }
 
+float planeIntersection(cVector3d ray, cVector3d origin, cVector3d n, cVector3d q)
+{
+	n.normalize();
+	if (cDot(ray, n) != 0)
+		return (cDot(q, n) - cDot(n, origin)) / cDot(ray, n);
+
+	return -1;
+}
+
+cVector3d calc_barycentric_coords(cVector3d p0, cVector3d p1, cVector3d p2, cVector3d point)
+{
+	// calculating barycentric 
+	cVector3d barycentric;
+	{ auto d = p1 - p0; d.cross(point - p0); barycentric.z(d.length() * (d.z() / abs(d.z()))); }
+	{ auto d = p2 - p1; d.cross(point - p1); barycentric.x(d.length() * (d.z() / abs(d.z()))); }
+	{ auto d = p0 - p2; d.cross(point - p2); barycentric.y(d.length() * (d.z() / abs(d.z()))); }
+	barycentric.normalize();
+
+	return barycentric;
+}
+
+bool barycentric_test(cVector3d bar)
+{
+	if (bar.x() >= 0 && bar.y() >= 0 && bar.z() >= 0)
+	{
+		return true;
+	}
+
+	return false;
+}
 
 bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition, unsigned int index) {
+
 	unsigned int index0 = (mesh->m_triangles->getVertexIndex0(index));
 	cVector3d p0 = mesh->m_vertices->getLocalPos(index0);
 
@@ -89,12 +123,27 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 
 	unsigned int index2 = (mesh->m_triangles->getVertexIndex2(index));
 	cVector3d p2 = mesh->m_vertices->getLocalPos(index2);
+
 	if (!forceComputed[index0])	forces[index0] = cVector3d(0, 0, 0);
 	if (!forceComputed[index1]) forces[index1] = cVector3d(0, 0, 0);
 	if (!forceComputed[index2])	forces[index2] = cVector3d(0, 0, 0);
 
-	bool contact = 0;
 	auto normal = (p1 - p0); normal.cross(p2 - p0); normal.normalize();
+	// triangle between tool and avatar
+	cVector3d toolToAvatar = prevPos - position;
+	toolToAvatar.normalize();
+	float t = planeIntersection(toolToAvatar, position, normal, p0);
+	cVector3d intersection = position + toolToAvatar * t;
+	cVector3d bar_intersection = calc_barycentric_coords(p0, p1, p2, intersection);
+	if (t >= 0 && t <= (prevPos - position).length())
+	{
+		if (barycentric_test(bar_intersection))
+		{
+			cursorPosition = position + toolToAvatar * (t+0.0001);
+		}
+	}
+
+	bool contact = 0;
 	auto proj = (cursorPosition - p0);
 	auto proj_dot_normal = proj.dot(normal);
 	auto proj_sign = (proj_dot_normal > 0) ? 1 : -1;
@@ -103,12 +152,7 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 		// check cursor sphere against the face
 		auto proj_face = cursorPosition - proj;
 
-		// calculating barycentric 
-		cVector3d barycentric;
-		{ auto d = p1 - p0; d.cross(proj_face - p0); barycentric.z(d.length() * (d.z() / abs(d.z()))); }
-		{ auto d = p2 - p1; d.cross(proj_face - p1); barycentric.x(d.length() * (d.z() / abs(d.z()))); }
-		{ auto d = p0 - p2; d.cross(proj_face - p2); barycentric.y(d.length() * (d.z() / abs(d.z()))); }
-		barycentric.normalize();
+		cVector3d barycentric = calc_barycentric_coords(p0,p1,p2, proj_face);
 
 		// cursor sphere touching triangle face
 		if (abs(proj_dot_normal) < radius && barycentric.x() >= 0 && barycentric.y() >= 0 && barycentric.z() >= 0
@@ -121,9 +165,9 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 			forces[index1] += -normal * barycentric.y() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
 			forces[index2] += -normal * barycentric.z() * (radius - abs(proj_dot_normal)) * proj_sign * 1000;
 			forceComputed[index0] = forceComputed[index1] = forceComputed[index2] = 1;
-
 		}
 	}
+
 	return contact;
 }
 

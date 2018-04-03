@@ -1,3 +1,3 @@
 ﻿  MatchingMesh.cpp
-MatchingMesh.cpp(63): warning C4390: ';': empty controlled statement found; is this the intent?
-  application-VS2015.vcxproj -> C:\Users\mohan\git\cpsc599project\templates\project\../../bin/win-x64/application-GLFW.exe
+MatchingMesh.cpp(65): warning C4390: ';': empty controlled statement found; is this the intent?
+  application-VS2015.vcxproj -> U:\cpsc599project\templates\project\../../bin/win-x64/application-GLFW.exe
