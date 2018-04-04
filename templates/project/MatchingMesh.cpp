@@ -15,7 +15,7 @@ MatchingMesh::MatchingMesh(cWorld* world)
 	vector<cVector3d> uvs;
 	vector<unsigned int> indices;
 
-	loadOBJ("Meshes/monkey.obj", &vertices, &normals, &uvs, &indices);
+	loadOBJ("Meshes/4triangles.obj", &vertices, &normals, &uvs, &indices);
 
 	for (unsigned int i = 0; i < vertices.size(); i++)
 	{
@@ -171,9 +171,41 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 	return contact;
 }
 
+cVector3d solveCylinderCollisions()
+{
+	return cVector3d(0,0,0);
+}
+
 bool MatchingMesh::updateLine(unsigned int indexP0, unsigned int indexP1, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition) {
 	auto p0 = mesh->m_vertices->getLocalPos(indexP0);
 	auto p1 = mesh->m_vertices->getLocalPos(indexP1);
+
+	/*cVector3d toolToAvatar = prevPos - position;
+	toolToAvatar.normalize();
+
+	//calcuate vector from one line to the other
+	cVector3d line_distance = p0-position;
+	//attemtp to get normal
+	cVector3d normal = cCross(toolToAvatar, (p1-p0));
+	float distance = 0;
+	//If no normal is found then the vectors are colinear
+	if (normal.length() == 0)
+	{
+		//The following calculates the orthogonal direction from one parallel line onto the other
+		cVector3d lineV = cProject(line_distance, (p1-p0));
+		lineV = line_distance-lineV;
+		distance = lineV.length();
+	}
+	else
+	{
+		//project line onto the normal (orthogonal to both lines)
+		//This yields the orthogonal distance, the shortest distance between the lines
+		line_distance = cProject(line_distance, normal);
+		distance = line_distance.length();
+	}
+	
+	if (distance < radius)
+		cursorPosition = cVector3d(0,0,0);*/
 
 	bool contact = false;
 	// cursor sphere touching line segment p0 p1
