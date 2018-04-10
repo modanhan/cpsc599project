@@ -27,6 +27,7 @@ public:
 	chai3d::cVector3d lCursorPosition;
 
 	MatchingMesh(chai3d::cWorld* world);
+	MatchingMesh(chai3d::cWorld* world, std::string s);
 
 	void update(chai3d::cVector3d &force, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition);
 	bool updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition, unsigned int);

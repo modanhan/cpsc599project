@@ -8,7 +8,7 @@ using namespace Eigen;
 
 cVector3d prevPos = cVector3d(0,0,0);
 
-MatchingMesh::MatchingMesh(cWorld* world)
+MatchingMesh::MatchingMesh(cWorld* world, string s)
 {
 	mesh = new cMesh();
 
@@ -17,7 +17,7 @@ MatchingMesh::MatchingMesh(cWorld* world)
 	vector<cVector3d> uvs;
 	vector<unsigned int> indices;
 
-	loadOBJ("Meshes/monkey.obj", &vertices, &normals, &uvs, &indices);
+	loadOBJ(s, &vertices, &normals, &uvs, &indices);
 
 	for (unsigned int i = 0; i < vertices.size(); i++)
 	{
@@ -38,7 +38,7 @@ MatchingMesh::MatchingMesh(cWorld* world)
 	mesh->computeAllNormals();
 
 	mesh->m_material = cMaterial::create();
-	mesh->m_material->setBlueMediumTurquoise();
+	mesh->m_material->setWhiteGhost();
 	mesh->m_material->setUseHapticShading(true);
 
 	world->addChild(mesh);

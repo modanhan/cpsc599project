@@ -41,6 +41,8 @@ bool fullscreen = false;
 // mirrored display
 bool mirroredDisplay = false;
 
+int scene = 0;
+
 
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
@@ -128,6 +130,7 @@ void close(void);
 //==============================================================================
 
 MatchingMesh* test_mesh;
+vector<MatchingMesh*> matching_meshes;
 
 
 
@@ -316,8 +319,12 @@ int main(int argc, char* argv[])
 
 
 //	test_shape = new MatchingShape("Meshes/monkey.3ds");
-	test_mesh = new MatchingMesh(world);
-
+//	test_mesh = new MatchingMesh(world);
+	matching_meshes.push_back(new MatchingMesh(world, "Meshes/monkey.obj"));
+	matching_meshes.push_back(new MatchingMesh(world, "Meshes/baymax.obj"));
+	matching_meshes.push_back(new MatchingMesh(world, "Meshes/fish.obj"));
+	for (auto a : matching_meshes)a->mesh->setEnabled(0);
+	matching_meshes[scene]->mesh->setEnabled(1);
 
 	//--------------------------------------------------------------------------
 	// WIDGETS
@@ -521,6 +528,9 @@ void move_center(cVector3d pos)
 
 	}
 }
+
+bool lastButton;
+
 void updateHaptics(void)
 {
 	// simulation in now running
@@ -566,7 +576,19 @@ void updateHaptics(void)
 		double gripperForce = 0.0;
 
 		//test_shape->update(force, position + tool_center);
-		test_mesh->update(force, position + tool_center, cursor->getLocalPos());
+		//test_mesh->update(force, position + tool_center, cursor->getLocalPos());
+
+		MatchingMesh* closest=matching_meshes[scene];
+
+		closest->update(force, position + tool_center, cursor->getLocalPos());
+
+		if (button && !lastButton) {
+			matching_meshes[scene]->mesh->setEnabled(0);
+			scene++;
+			scene %= matching_meshes.size();
+			matching_meshes[scene]->mesh->setEnabled(1);
+		}
+		lastButton = button;
 
 		//test_triangle->update(force, position + tool_center);
 
