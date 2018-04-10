@@ -1,8 +1,10 @@
 #include "MatchingMesh.h"
 #include "loader.hpp"
+#include <Eigen/Dense>
 
 using namespace std;
 using namespace chai3d;
+using namespace Eigen;
 
 cVector3d prevPos = cVector3d(0,0,0);
 
@@ -61,16 +63,61 @@ MatchingMesh::~MatchingMesh()
 void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &cursorPosition)
 {
 	forceComputed.assign(mesh->m_vertices->getNumElements(), 0);
+	cVector3d collisionPoint = cVector3d(0,0,0);
+	bool collided = false;
+	float count = 0;
 	for (unsigned int i = 0; i < mesh->getNumTriangles(); i++) {
-		 if (updateTriangle(force, position, cursorPosition, i));
+		if (updateTriangle(force, position, cursorPosition, i))
+		{
+
+		}
 	}
 	for (auto& e : edges) {
-		updateLine(e.first, e.second, position, cursorPosition);
+		if (updateLine(e.first, e.second, position, cursorPosition))
+		{
+
+		}
 	}
 	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
 	{
-		updatePoint(i, position, cursorPosition);
+		cVector3d cPos = cursorPosition;
+		if (updatePoint(i, position, cursorPosition))
+		{
+
+		}
 	}
+
+	/*for (unsigned int i = 0; i < mesh->getNumTriangles(); i++) {
+		cVector3d cPos = cursorPosition;
+		if (updateTriangle(force, position, cPos, i))
+		{
+			collided = true;
+			count += 1.f;
+			collisionPoint += cPos;
+		}
+	}
+	for (auto& e : edges) {
+		cVector3d cPos = cursorPosition;
+		if (updateLine(e.first, e.second, position, cPos))
+		{
+			count += 1.f;
+			collided = true;
+			collisionPoint += cPos;
+		}
+	}
+	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
+	{
+		cVector3d cPos = cursorPosition;
+		if (updatePoint(i, position, cPos))
+		{
+			count += 1.f;
+			collided = true;
+			collisionPoint += cPos;
+		}
+	}
+
+	if (collided)
+		cursorPosition = (collisionPoint)/count;*/
 
 	force = (cursorPosition - position) * 2000;
 
@@ -91,6 +138,7 @@ float planeIntersection(cVector3d ray, cVector3d origin, cVector3d n, cVector3d 
 	return -1;
 }
 
+//candidate 1
 cVector3d calc_barycentric_coords(cVector3d p0, cVector3d p1, cVector3d p2, cVector3d point)
 {
 	// calculating barycentric 
@@ -101,6 +149,32 @@ cVector3d calc_barycentric_coords(cVector3d p0, cVector3d p1, cVector3d p2, cVec
 	barycentric.normalize();
 
 	return barycentric;
+}
+
+cVector3d triangleIntersection(cVector3d p0, cVector3d p1, cVector3d p2, cVector3d origin, cVector3d ray, float &t)
+{
+	cVector3d s = origin - p0;
+	cVector3d e1 = p1 - p0;
+	cVector3d e2 = p2 - p0;
+
+	Matrix3f mt;// = mat3(s, e1, e2);
+	mt << s.x(), e1.x(), e2.x(),  s.y(), e1.y(), e2.y(),  s.z(), e1.z(), e2.z();
+
+	Matrix3f mu; //= mat3(-ray, s, e2);
+	mu << -ray.x(), s.x(), e2.x(), -ray.y(), s.y(), e2.y(), -ray.z(), s.z(), e2.z();
+
+	Matrix3f mv; // = mat3(-ray, e1, s);
+	mv << -ray.x(), e1.x(), s.x(), -ray.y(), e1.y(), s.y(), -ray.z(), e1.z(), s.z() ;
+	Matrix3f md;// = mat3(-ray, e1, e2);
+	md << -ray.x(), e1.x(), e2.x(), -ray.y(), e1.y(), e2.y(), -ray.z(), e1.z(), e2.z();
+
+	t = mt.determinant() / md.determinant();
+	float u = mu.determinant() / md.determinant();
+	float v = mv.determinant() / md.determinant();
+	float w = 1 - u - v;
+
+	return cVector3d(w,u,v);
+
 }
 
 bool barycentric_test(cVector3d bar)
@@ -132,14 +206,17 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 	// triangle between tool and avatar
 	cVector3d toolToAvatar = prevPos - position;
 	toolToAvatar.normalize();
-	float t = planeIntersection(toolToAvatar, position, normal, p0);
+	/*float t = planeIntersection(toolToAvatar, position, normal, p0);
 	cVector3d intersection = position + toolToAvatar * t;
-	cVector3d bar_intersection = calc_barycentric_coords(p0, p1, p2, intersection);
+	cVector3d bar_intersection = calc_barycentric_coords(p0, p1, p2, intersection);*/
+
+	float t;
+	cVector3d bar_intersection = triangleIntersection(p0,p1,p2, position, toolToAvatar, t);
 	if (t >= 0 && t <= (prevPos - position).length())
 	{
 		if (barycentric_test(bar_intersection))
 		{
-			cursorPosition = position + toolToAvatar * (t+0.0001);
+			cursorPosition = position + toolToAvatar * (t+0.1);
 		}
 	}
 
@@ -152,7 +229,9 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 		// check cursor sphere against the face
 		auto proj_face = cursorPosition - proj;
 
-		cVector3d barycentric = calc_barycentric_coords(p0,p1,p2, proj_face);
+		//cVector3d barycentric = calc_barycentric_coords(p0,p1,p2, proj_face);
+
+		cVector3d barycentric = triangleIntersection(p0,p1,p2, cursorPosition, cNormalize(cursorPosition-proj_face), t);
 
 		// cursor sphere touching triangle face
 		if (abs(proj_dot_normal) < radius && barycentric.x() >= 0 && barycentric.y() >= 0 && barycentric.z() >= 0
@@ -171,28 +250,23 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 	return contact;
 }
 
-cVector3d solveCylinderCollisions()
+cVector3d solveCylinderCollisions(cVector3d c1, cVector3d c2, float radius, cVector3d l1, cVector3d l2)
 {
-	return cVector3d(0,0,0);
-}
-
-bool MatchingMesh::updateLine(unsigned int indexP0, unsigned int indexP1, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition) {
-	auto p0 = mesh->m_vertices->getLocalPos(indexP0);
-	auto p1 = mesh->m_vertices->getLocalPos(indexP1);
-
-	/*cVector3d toolToAvatar = prevPos - position;
-	toolToAvatar.normalize();
+	cVector3d cylinderDir = c2 - c1;
+	cylinderDir.normalize();
+	cVector3d lineDir = l2-l1;
+	lineDir.normalize();
 
 	//calcuate vector from one line to the other
-	cVector3d line_distance = p0-position;
+	cVector3d line_distance = l1-c1;
 	//attemtp to get normal
-	cVector3d normal = cCross(toolToAvatar, (p1-p0));
+	cVector3d normal = cCross(cylinderDir, lineDir);
 	float distance = 0;
 	//If no normal is found then the vectors are colinear
 	if (normal.length() == 0)
 	{
 		//The following calculates the orthogonal direction from one parallel line onto the other
-		cVector3d lineV = cProject(line_distance, (p1-p0));
+		cVector3d lineV = cProject(line_distance, lineDir);
 		lineV = line_distance-lineV;
 		distance = lineV.length();
 	}
@@ -203,9 +277,43 @@ bool MatchingMesh::updateLine(unsigned int indexP0, unsigned int indexP1, chai3d
 		line_distance = cProject(line_distance, normal);
 		distance = line_distance.length();
 	}
-	
-	if (distance < radius)
-		cursorPosition = cVector3d(0,0,0);*/
+
+	if (distance > radius)
+	{
+		return c1;
+	}
+
+	cVector3d c1p = c1- line_distance;
+	cVector3d c2p = c2 - line_distance;
+
+	Matrix3f A;
+	//Construct the matrix [v1, v2, 0]
+	A << cylinderDir.x(), -lineDir.x(), 0, cylinderDir.y(), -lineDir.y(), 0, cylinderDir.z(), -lineDir.z(), 0;
+
+	cVector3d offset = l2 - c1p;
+
+
+	Vector3f b;
+	//Create the result vector p2-p1
+	b << offset.x(), offset.y(), offset.z();
+
+	//Solve the system of equations
+	Vector3f x = A.colPivHouseholderQr().solve(b);
+	//cout << "test: "<< x << endl;
+
+	bool inside = false;
+	cVector3d c3 = c1 + cylinderDir * x[0];
+	cVector3d l3 = l1 + lineDir * x[1];
+
+	//cout << c1 + cylinderDir * x[0] << endl;
+	return c1+cylinderDir*x[0];
+}
+
+bool MatchingMesh::updateLine(unsigned int indexP0, unsigned int indexP1, chai3d::cVector3d &position, chai3d::cVector3d &cursorPosition) {
+	auto p0 = mesh->m_vertices->getLocalPos(indexP0);
+	auto p1 = mesh->m_vertices->getLocalPos(indexP1);
+
+	//cursorPosition = solveCylinderCollisions(prevPos, position, radius, p0, p1);
 
 	bool contact = false;
 	// cursor sphere touching line segment p0 p1
