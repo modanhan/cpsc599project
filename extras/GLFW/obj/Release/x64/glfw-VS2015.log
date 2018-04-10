@@ -13,4 +13,4 @@
   win32_window.c
   window.c
   Generating Code...
-  glfw-VS2015.vcxproj -> U:\cpsc599project\extras\GLFW\lib/Release/x64/glfw.lib
+  glfw-VS2015.vcxproj -> C:\Users\mohan\git\cpsc599project\extras\GLFW\lib/Release/x64/glfw.lib

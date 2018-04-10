@@ -17,7 +17,7 @@ MatchingMesh::MatchingMesh(cWorld* world)
 	vector<cVector3d> uvs;
 	vector<unsigned int> indices;
 
-	loadOBJ("Meshes/4triangles.obj", &vertices, &normals, &uvs, &indices);
+	loadOBJ("Meshes/monkey.obj", &vertices, &normals, &uvs, &indices);
 
 	for (unsigned int i = 0; i < vertices.size(); i++)
 	{
@@ -66,16 +66,22 @@ void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &curs
 	cVector3d collisionPoint = cVector3d(0,0,0);
 	bool collided = false;
 	float count = 0;
+
+
+	affectedVertices.clear();
+	bool lContact = contact;
+
+	contact = false;
 	for (unsigned int i = 0; i < mesh->getNumTriangles(); i++) {
 		if (updateTriangle(force, position, cursorPosition, i))
 		{
-
+			contact = true;
 		}
 	}
 	for (auto& e : edges) {
 		if (updateLine(e.first, e.second, position, cursorPosition))
 		{
-
+			contact = true;
 		}
 	}
 	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
@@ -83,8 +89,11 @@ void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &curs
 		cVector3d cPos = cursorPosition;
 		if (updatePoint(i, position, cursorPosition))
 		{
-
+			contact = true;
 		}
+	}
+	if (contact && !lContact) {
+		lCursorPosition = cursorPosition;
 	}
 
 	/*for (unsigned int i = 0; i < mesh->getNumTriangles(); i++) {
@@ -119,7 +128,32 @@ void MatchingMesh::update(cVector3d &force, cVector3d &position, cVector3d &curs
 	if (collided)
 		cursorPosition = (collisionPoint)/count;*/
 
+	if (contact&&lContact) {
+		auto d = cursorPosition - lCursorPosition;
+		if (cDynamicFriction) {
+			if (d.length() > dynamicFriction) {
+				d.normalize();
+				lCursorPosition = cursorPosition - d * (dynamicFriction+0.0001);
+			}
+			else {
+				cDynamicFriction = 0;
+			}
+		}
+		else {
+			if (d.length() > staticFriction) {
+				d.normalize();
+				lCursorPosition = cursorPosition - d * (staticFriction+0.0001);
+			}
+		}
+
+		cursorPosition = lCursorPosition;
+	}
+
 	force = (cursorPosition - position) * 2000;
+
+	for (auto i : affectedVertices) {
+		forces[i] += -force * 0.1;
+	}
 
 	for (unsigned int i = 0; i < mesh->m_vertices->getNumElements(); i++)
 	{
@@ -247,6 +281,12 @@ bool MatchingMesh::updateTriangle(chai3d::cVector3d &force, chai3d::cVector3d &p
 		}
 	}
 
+	if (contact) {
+		affectedVertices.insert(index0);
+		affectedVertices.insert(index1);
+		affectedVertices.insert(index2);
+	}
+
 	return contact;
 }
 
@@ -337,7 +377,10 @@ bool MatchingMesh::updateLine(unsigned int indexP0, unsigned int indexP1, chai3d
 			forces[indexP1] += fd * (lerp_amount)* penetration_depth * 1000;
 		}
 	}
-
+	if (contact) {
+		affectedVertices.insert(indexP0);
+		affectedVertices.insert(indexP1);
+	}
 	return contact;
 }
 
@@ -354,7 +397,9 @@ bool MatchingMesh::updatePoint(unsigned int index, chai3d::cVector3d &position, 
 		auto fd = -(cursorPosition - position); fd.normalize();
 		forces[index] = -f * fd * 1000;
 	}
-
+	if (contact) {
+		affectedVertices.insert(index);
+	}
 	return contact;
 }
 
